@@ -20,10 +20,9 @@ ui <- fluidPage(
         selectInput("board_id", "Board ID", choices = "")
       ),
       hr(),
-      checkboxGroupInput("ta", "Select TA", choices = c("sma_ta", "ema_ta"))
+      checkboxGroupInput("ta", "Select TA", choices = c("sma", "ema", "bband", "momentum", "roc"))
     ),
     mainPanel(
-      textOutput("sec_title"),
       highchartOutput("candles")
     )
   )
@@ -50,9 +49,13 @@ server <- function(input, output, session) {
   })
 
   output$candles <- renderHighchart({
-    plot_candles(reactive_data()) %>%
-      purrr::when("sma_ta" %in% input$ta ~ plot_sma_ta(., reactive_data()), ~ .) %>%
-      purrr::when("ema_ta" %in% input$ta ~ plot_ema_ta(., reactive_data()), ~ .)
+    title = all_sec_df %>% filter(secid == input$sec) %>% pull(name)
+    plot_candles(reactive_data(), title) %>%
+      purrr::when("sma" %in% input$ta ~ plot_sma(., reactive_data()), ~ .) %>%
+      purrr::when("ema" %in% input$ta ~ plot_ema(., reactive_data()), ~ .) %>%
+      purrr::when("bband" %in% input$ta ~ plot_bband(., reactive_data()), ~ .) %>%
+      purrr::when("momentum" %in% input$ta ~ plot_momentum(., reactive_data()), ~ .) %>%
+      purrr::when("roc" %in% input$ta ~ plot_roc(., reactive_data()), ~ .)
   })
 
   output$sec_title <- renderText({
