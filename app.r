@@ -20,10 +20,12 @@ ui <- fluidPage(
         selectInput("board_id", "Board ID", choices = "")
       ),
       hr(),
-      checkboxGroupInput("ta", "Select TA", choices = c("sma", "ema", "bband", "momentum", "roc"))
+      checkboxGroupInput("ta", "Select TA",
+                         choices = c("sma", "ema", "bband", "momentum", "roc", "macd", "rsi"))
     ),
     mainPanel(
-      highchartOutput("candles")
+      highchartOutput("candles"),
+      dataTableOutput("candle_patterns")
     )
   )
 )
@@ -55,12 +57,21 @@ server <- function(input, output, session) {
       purrr::when("ema" %in% input$ta ~ plot_ema(., reactive_data()), ~ .) %>%
       purrr::when("bband" %in% input$ta ~ plot_bband(., reactive_data()), ~ .) %>%
       purrr::when("momentum" %in% input$ta ~ plot_momentum(., reactive_data()), ~ .) %>%
-      purrr::when("roc" %in% input$ta ~ plot_roc(., reactive_data()), ~ .)
+      purrr::when("roc" %in% input$ta ~ plot_roc(., reactive_data()), ~ .) %>%
+      purrr::when("macd" %in% input$ta ~ plot_macd(., reactive_data()), ~ .) %>%
+      purrr::when("rsi" %in% input$ta ~ plot_rsi(., reactive_data()), ~ .)
   })
 
   output$sec_title <- renderText({
     all_sec_df %>% filter(secid == input$sec) %>% pull(name) %>% enc2native()
   })
+
+  output$candle_patterns <- renderDataTable({
+    reactive_data() %>%
+      find_candle_patterns() %>%
+      as.data.frame %>%
+      tibble::rownames_to_column(var = "DATE")
+  }, rownames = FALSE)
 }
 
 shinyApp(ui, server)

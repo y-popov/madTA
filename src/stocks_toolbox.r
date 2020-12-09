@@ -4,6 +4,8 @@ library(tidyr)
 library(purrr)
 library(stringr)
 library(highcharter)
+library(quantstrat)
+library(CandleStickPattern)
 
 
 # Tim Tillson's T3 indicator
@@ -89,11 +91,58 @@ add_roc <- function(df, n = 7) {
 
 plot_roc <- function(chart, df, n = 7) {
   df <- add_roc(df, n)
-  n_yaxis = length(chart$x$hc_opts$yAxis)
+  n_yaxis <- length(chart$x$hc_opts$yAxis)
   chart %>%
     hc_add_series(df, hcaes(x = TRADEDATE, y = roc), type = "line", yAxis = n_yaxis,
                   name = str_glue("{n}-day ROC"), color = "red") %>%
     hc_add_yAxis(nid = n_yaxis + 1L, relative = 1)
 }
 
+# Moving average convergence/divergence
+add_macd <- function(df, fast = 12, slow = 26, sig = 9) {
+  df %>%
+    mutate(macd = MACD(CLOSE, nFast = fast, nSlow = slow, nSig = sig, percent = FALSE) %>%
+      as.data.frame() %>%
+      split(f = seq(n()))
+    ) %>%
+    unnest(macd)
+}
+
+# Buy signal arises when MACD crosses from below to above the signal line
+# Sell signal arrises when MACD crosses from above to below the signal line
+plot_macd <- function(chart, df, fast = 12, slow = 26, sig = 9) {
+  df <- add_macd(df, fast, slow, sig)
+  n_yaxis <- length(chart$x$hc_opts$yAxis)
+  chart %>%
+    hc_add_series(df, hcaes(x = TRADEDATE, y = macd), type = "line", yAxis = n_yaxis, color = 'lightgrey',
+                  name = str_glue('MACD ({fast}, {slow}, {sig})')) %>%
+    hc_add_series(df, hcaes(x = TRADEDATE, y = signal), type = "line", yAxis = n_yaxis, color = 'red',
+                  name = "MACD signal", dashStyle = "Dot") %>%
+    hc_add_yAxis(nid = n_yaxis + 1L, relative = 1)
+}
+
+# Relative Strength Index
+add_rsi <- function(df, n = 14, fun = EMA) {
+  df %>%
+    mutate(rsi = RSI(CLOSE, n = n, maType = fun))
+}
+
+# Buy signal arises when RSI is less than 30
+# Sell signal arrises when RSI is higher than 30
+plot_rsi <- function(chart, df, n = 14, fun = EMA) {
+  df <- add_rsi(df, n, fun)
+  n_yaxis <- length(chart$x$hc_opts$yAxis)
+  chart %>%
+    hc_add_series(df, hcaes(x = TRADEDATE, y = rsi), type = "line", yAxis = n_yaxis, name = str_glue("{n}-day RSI")) %>%
+    hc_add_yAxis(nid = n_yaxis + 1L, relative = 1)
+}
+
 # signals
+
+find_candle_patterns <- function(df) {
+  df_series = df %>% select(-LEGALCLOSEPRICE) %>% as.xts()
+  cbind(
+    doji(df_series),
+    dragonfly.doji(df_series)
+  )
+}
