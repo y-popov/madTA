@@ -7,18 +7,21 @@ library(highcharter)
 library(quantstrat)
 library(CandleStickPattern)
 
+source("src/candlesticks.r")
+
 
 # Tim Tillson's T3 indicator
 t3 <- function(x, n=10, v=1) DEMA(DEMA(DEMA(x, n, v), n, v), n, v)
 
-plot_candles <- function(df, title = 'Candle plot') {
+plot_candles <- function(df, title = "Candle plot") {
   highchart(type = "stock") %>%
     hc_title(text = title) %>%
     hc_add_series(xts::as.xts(df), yAxis = 0) %>%
-    hc_add_yAxis(nid = 1L, relative = 2) %>%
+    hc_add_yAxis(nid = 1L, relative = 3) %>%
     hc_add_series(df, hcaes(x = TRADEDATE, y = VOLUME), yAxis = 1, type = "column", name = "Volume", color = "gray") %>%
     hc_add_yAxis(nid = 1L, relative = 1) %>%
     hc_tooltip(valueDecimals = 2)
+    #hc_size(height = 600)
 }
 
 # indicators
@@ -114,9 +117,9 @@ plot_macd <- function(chart, df, fast = 12, slow = 26, sig = 9) {
   df <- add_macd(df, fast, slow, sig)
   n_yaxis <- length(chart$x$hc_opts$yAxis)
   chart %>%
-    hc_add_series(df, hcaes(x = TRADEDATE, y = macd), type = "line", yAxis = n_yaxis, color = 'lightgrey',
-                  name = str_glue('MACD ({fast}, {slow}, {sig})')) %>%
-    hc_add_series(df, hcaes(x = TRADEDATE, y = signal), type = "line", yAxis = n_yaxis, color = 'red',
+    hc_add_series(df, hcaes(x = TRADEDATE, y = macd), type = "line", yAxis = n_yaxis, color = "lightgrey",
+                  name = str_glue("MACD ({fast}, {slow}, {sig})")) %>%
+    hc_add_series(df, hcaes(x = TRADEDATE, y = signal), type = "line", yAxis = n_yaxis, color = "red",
                   name = "MACD signal", dashStyle = "Dot") %>%
     hc_add_yAxis(nid = n_yaxis + 1L, relative = 1)
 }
@@ -140,9 +143,19 @@ plot_rsi <- function(chart, df, n = 14, fun = EMA) {
 # signals
 
 find_candle_patterns <- function(df) {
-  df_series = df %>% select(-LEGALCLOSEPRICE) %>% as.xts()
+  candlesticks <- Candlesticks$new(df)
+  df_series <- as.xts(df)
   cbind(
     doji(df_series),
-    dragonfly.doji(df_series)
+    candlesticks$marubozu(),
+    bearish.harami(df_series),
+    bullish.harami(df_series),
+    bearish.engulf(df_series),
+    bullish.engulf(df_series),
+    evening.star(df_series),
+    morning.star(df_series),
+    three.white.soldiers(df_series),
+    three.black.crows(df_series),
+    candlesticks$advance_block()
   )
 }

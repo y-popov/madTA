@@ -24,8 +24,8 @@ ui <- fluidPage(
                          choices = c("sma", "ema", "bband", "momentum", "roc", "macd", "rsi"))
     ),
     mainPanel(
-      highchartOutput("candles"),
-      dataTableOutput("candle_patterns")
+      highchartOutput("candles", height = "600px"),
+      DT::dataTableOutput("candle_patterns")
     )
   )
 )
@@ -46,12 +46,14 @@ server <- function(input, output, session) {
     validate(need(input$board_id, "Select board id"))
     reactive_sec_history() %>%
       filter(BOARDID == input$board_id) %>%
+      filter(!is.na(CLOSE)) %>%
       select(-BOARDID, -SHORTNAME, -SECID) %>%
+      rename(LEGALCLOSINGPRICE = LEGALCLOSEPRICE) %>%  # иначе определяется вместо CLOSE
       mutate(TRADEDATE = as.Date(TRADEDATE))
   })
 
   output$candles <- renderHighchart({
-    title = all_sec_df %>% filter(secid == input$sec) %>% pull(name)
+    title <- all_sec_df %>% filter(secid == input$sec) %>% pull(name)
     plot_candles(reactive_data(), title) %>%
       purrr::when("sma" %in% input$ta ~ plot_sma(., reactive_data()), ~ .) %>%
       purrr::when("ema" %in% input$ta ~ plot_ema(., reactive_data()), ~ .) %>%
@@ -66,10 +68,10 @@ server <- function(input, output, session) {
     all_sec_df %>% filter(secid == input$sec) %>% pull(name) %>% enc2native()
   })
 
-  output$candle_patterns <- renderDataTable({
+  output$candle_patterns <- DT::renderDataTable({
     reactive_data() %>%
       find_candle_patterns() %>%
-      as.data.frame %>%
+      as.data.frame() %>%
       tibble::rownames_to_column(var = "DATE")
   }, rownames = FALSE)
 }

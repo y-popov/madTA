@@ -88,6 +88,21 @@ MoexApi <- R6Class(  # nolint
       private$paginate_request(query_string = string)
     },
 
+    # получает таблицу дивидендов по бумаге
+    get_dividends = function(secid) {
+      uri <- str_glue("securities/{secid}/dividends")
+      res <- private$request(query_string = uri)
+      moex_json_to_df(res$dividends)
+    },
+
+    # получает таблицы купонов и амортизаций
+    get_bondisation = function(isin) {
+      # https://iss.moex.com/iss/statistics/engines/stock/markets/bonds/bondization/RU000A0JXU71
+      uri <- str_glue("securities/{isin}/bondization")
+      res <- private$request(query_string = uri)
+      lapply(res, moex_json_to_df)
+    },
+
     # получает общую информацию о бирже (рынки, режимы торгов и пр.)
     get_moex_info = function() {
       res <- private$request("index")
